@@ -76,25 +76,14 @@ buildDotnetModule (finalAttrs: {
 
   runtimeDeps = [ udev ];
 
-  makeWrapperArgs = [
-    "--chdir"
-    "${placeholder "out"}/lib/baballonia"
-  ];
-
   postUnpack = ''
     ln -s ${internal} $sourceRoot/src/Baballonia.Desktop/_internal.zip
   '';
 
-  preFixup = ''
-    mv $out/bin/lib*.{so,so.dbg} $out/lib
-  '';
-
-  postFixup = ''
+  dotnetFixupPhase = ''
+    wrapDotnetProgram $out/lib/baballonia/Baballonia.Desktop $out/bin/baballonia
     mkdir -p $out/lib/baballonia/Modules
-    mv $out/bin/Baballonia.Desktop $out/bin/baballonia
-  '';
 
-  postInstall = ''
     # The best quality icon is the Android icon
     install -D src/Baballonia.Android/Icon.png $out/share/icons/hicolor/512x512/apps/baballonia.png
   '';
