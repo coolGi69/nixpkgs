@@ -10,6 +10,8 @@
   buildDotnetModule,
   dotnetCorePackages,
   fetchFromGitHub,
+  copyDesktopItems,
+  makeDesktopItem,
   fetchurl,
   stdenv,
 }:
@@ -56,6 +58,7 @@ buildDotnetModule (finalAttrs: {
     xorg.libSM
     xorg.libICE
     opencvsharp
+    copyDesktopItems
   ];
 
   src = fetchFromGitHub {
@@ -90,6 +93,24 @@ buildDotnetModule (finalAttrs: {
     mkdir -p $out/lib/baballonia/Modules
     mv $out/bin/Baballonia.Desktop $out/bin/baballonia
   '';
+
+  postInstall = ''
+    # The best quality icon is the Android icon
+    install -D src/Baballonia.Android/Icon.png $out/share/icons/hicolor/512x512/apps/baballonia.png
+  '';
+
+  desktopItems = [
+    (makeDesktopItem {
+      name = finalAttrs.pname;
+      desktopName = "Baballonia";
+      comment = finalAttrs.meta.description;
+      exec = "${finalAttrs.meta.mainProgram} %u";
+      terminal = false;
+      type = "Application";
+      icon = "baballonia";
+      categories = [ "Game" ];
+    })
+  ];
 
   meta = {
     mainProgram = "baballonia";
