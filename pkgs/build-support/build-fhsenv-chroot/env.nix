@@ -162,6 +162,9 @@ let
       mkdir -p ssl
       ln -s /host/etc/ssl/certs ssl/certs
 
+      # symlink OpenXR runtimes
+      ln -s /host/etc/xdg wawa
+
       # symlink /etc/mtab -> /proc/mounts (compat for old userspace progs)
       ln -s /proc/mounts mtab
     '';
