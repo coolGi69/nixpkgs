@@ -63,45 +63,7 @@ buildFHSEnv {
 
     ++
       # SteamVR driver dependencies
-      [ pkgs.zlib ]
-    ++ (
-      # WiVRn dependencies
-      pkgs.wivrn.buildInputs
-      ++ pkgs.wivrn.nativeBuildInputs
-      ++ (with pkgs; [
-        avahi
-        ffmpeg
-        glib
-        libmd
-        ninja
-        glslang
-        gst_all_1.gstreamer
-        gdk-pixbuf
-        lerc
-        libsysprof-capture
-        libbsd
-        libdeflate
-        libdrm
-        libGL
-        libnotify
-        libpng
-        libselinux
-        libsepol
-        libtiff
-        libuuid
-        libwebp
-        openssl
-        openxr-loader
-        pipewire
-        pulseaudio
-        systemd
-        vulkan-loader
-        x264
-      ])
-      ++ (with pkgs; [
-        android-tools # For adb installing WiVRn APKs
-      ])
-    );
+      [ pkgs.zlib ];
 
   profile = ''
     export CMAKE_LIBRARY_PATH=/usr/lib
@@ -131,7 +93,6 @@ buildFHSEnv {
         "simulated-default"
         "survive-default"
         "wmr-default"
-        "wivrn-default"
       ];
     in
     {

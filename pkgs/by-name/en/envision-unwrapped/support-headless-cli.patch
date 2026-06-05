@@ -1,5 +1,21 @@
+From ec3c6734fa072219d3c11346ea9c9d15f424f3a4 Mon Sep 17 00:00:00 2001
+From: Gavin John <gavinnjohn@gmail.com>
+Date: Sun, 22 Dec 2024 13:35:26 -0500
+Subject: [PATCH] Allow using CLI without initializing GTK
+
+Updated-by: coolGi <me@coolgi.dev>
+
+---
+ Cargo.lock             | 114 +++++++++++++++++++++++++++++++++++++++++
+ Cargo.toml             |   1 +
+ meson.build            |   1 +
+ src/constants.rs.in    |   1 +
+ src/main.rs            |  10 ++--
+ src/ui/cmdline_opts.rs |  72 ++++++++++++--------------
+ 6 files changed, 156 insertions(+), 43 deletions(-)
+
 diff --git a/Cargo.lock b/Cargo.lock
-index 989abbb..dbfc483 100644
+index 5ff232c..34292df 100644
 --- a/Cargo.lock
 +++ b/Cargo.lock
 @@ -26,6 +26,55 @@ dependencies = [
@@ -118,15 +134,15 @@ index 989abbb..dbfc483 100644
  [[package]]
  name = "concurrent-queue"
  version = "2.5.0"
-@@ -558,6 +653,7 @@ version = "2.0.1"
- dependencies = [
+@@ -578,6 +673,7 @@ dependencies = [
   "anyhow",
   "ash",
+  "delicious-adwaita",
 + "clap",
   "gettext-rs",
   "git2",
   "gtk4",
-@@ -1443,6 +1539,12 @@ version = "2.10.1"
+@@ -1465,6 +1561,12 @@ version = "2.10.1"
  source = "registry+https://github.com/rust-lang/crates.io-index"
  checksum = "ddc24109865250148c2e0f3d25d4f0f479571723792d3802153c60922a4fb708"
  
@@ -139,7 +155,7 @@ index 989abbb..dbfc483 100644
  [[package]]
  name = "itertools"
  version = "0.12.1"
-@@ -2637,6 +2739,12 @@ version = "1.1.0"
+@@ -2672,6 +2774,12 @@ version = "1.1.0"
  source = "registry+https://github.com/rust-lang/crates.io-index"
  checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
  
@@ -152,7 +168,7 @@ index 989abbb..dbfc483 100644
  [[package]]
  name = "subtle"
  version = "2.6.1"
-@@ -3045,6 +3153,12 @@ version = "1.0.4"
+@@ -3123,6 +3231,12 @@ version = "1.0.4"
  source = "registry+https://github.com/rust-lang/crates.io-index"
  checksum = "b6c140620e7ffbb22c2dee59cafe6084a59b5ffc27a8859a5f0d494b5d52b6be"
  
@@ -166,16 +182,16 @@ index 989abbb..dbfc483 100644
  name = "uuid"
  version = "1.11.0"
 diff --git a/Cargo.toml b/Cargo.toml
-index 512e892..01e9fb7 100644
+index ac94097..3128f94 100644
 --- a/Cargo.toml
 +++ b/Cargo.toml
-@@ -42,3 +42,4 @@ notify-rust = "4.11.3"
- zbus = { version = "5.1.1", features = ["tokio"] }
- tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
- tracing = "0.1.41"
+@@ -45,3 +45,4 @@ tracing = "0.1.41"
+ tracing-appender = "0.2.3"
+ serde_yaml = "0.9.34"
+ delicious-adwaita = { version = "0.3.0", features = ["all_themes"] }
 +clap = { version = "4.5.23", features = ["derive"] }
 diff --git a/meson.build b/meson.build
-index 4d58596..53991dd 100644
+index 9dfbf36..7f5545c 100644
 --- a/meson.build
 +++ b/meson.build
 @@ -77,6 +77,7 @@ meson.add_dist_script(
@@ -199,7 +215,7 @@ index db00776..886e545 100644
  pub const PKG_DATA_DIR: &str = "@PKGDATADIR@";
  pub const RESOURCES: &str = concat!("@PKGDATADIR@", "/resources.gresource");
 diff --git a/src/main.rs b/src/main.rs
-index 4453911..cd7c212 100644
+index 64a6e59..dd3c2dd 100644
 --- a/src/main.rs
 +++ b/src/main.rs
 @@ -1,4 +1,5 @@
@@ -208,7 +224,7 @@ index 4453911..cd7c212 100644
  use constants::{resources, APP_ID, APP_NAME, GETTEXT_PACKAGE, LOCALE_DIR, RESOURCES_BASE_PATH};
  use file_builders::{
      active_runtime_json::restore_active_runtime_backup,
-@@ -82,6 +83,11 @@ fn main() -> Result<()> {
+@@ -151,6 +152,11 @@ fn main() -> Result<()> {
      gettextrs::bindtextdomain(GETTEXT_PACKAGE, LOCALE_DIR).expect("Unable to bind the text domain");
      gettextrs::textdomain(GETTEXT_PACKAGE).expect("Unable to switch to the text domain");
  
@@ -220,7 +236,7 @@ index 4453911..cd7c212 100644
      gtk::init()?;
      glib::set_application_name(APP_NAME);
  
-@@ -115,10 +121,6 @@ fn main() -> Result<()> {
+@@ -184,10 +190,6 @@ fn main() -> Result<()> {
      let sender = BROKER.sender();
      main_app.connect_command_line(move |this, cmdline| {
          let opts = CmdLineOpts::from_cmdline(cmdline);
@@ -232,20 +248,20 @@ index 4453911..cd7c212 100644
          sender.emit(Msg::HandleCommandLine(opts));
          0
 diff --git a/src/ui/cmdline_opts.rs b/src/ui/cmdline_opts.rs
-index 48458e0..4b224c6 100644
+index 087ee74..4b224c6 100644
 --- a/src/ui/cmdline_opts.rs
 +++ b/src/ui/cmdline_opts.rs
-@@ -1,4 +1,8 @@
--use crate::config::Config;
-+use crate::{
-+    config::Config,
+@@ -1,7 +1,8 @@
+ use crate::{
+     config::Config,
+-    constants::{APP_NAME, VERSION},
 +    constants::{APP_NAME, DESCRIPTION, VERSION},
-+};
+ };
 +use clap::Parser;
  use gtk::{
      gio::{
          prelude::{ApplicationCommandLineExt, ApplicationExt},
-@@ -8,21 +12,47 @@ use gtk::{
+@@ -11,33 +12,49 @@ use gtk::{
  };
  use tracing::error;
  
@@ -255,6 +271,7 @@ index 48458e0..4b224c6 100644
 +#[command(version = VERSION)]
 +#[command(about = DESCRIPTION, long_about = None)]
  pub struct CmdLineOpts {
+-    pub version: bool,
 +    #[arg(short = 'S', long = "start", help = "Start the XR Service right away")]
      pub start: bool,
 +
@@ -288,6 +305,7 @@ index 48458e0..4b224c6 100644
  }
  
  impl CmdLineOpts {
+-    const OPT_VERSION: (&'static str, char) = ("version", 'v');
      const OPT_START: (&'static str, char) = ("start", 'S');
 -    const OPT_LIST_PROFILES: (&'static str, char) = ("list-profiles", 'l');
      const OPT_PROFILE: (&'static str, char) = ("profile", 'p');
@@ -295,8 +313,18 @@ index 48458e0..4b224c6 100644
 -    const OPT_CHECK_DEPS_FOR: (&'static str, char) = ("check-deps-for", 'c');
  
      pub fn init(app: &impl IsA<Application>) {
+-        app.add_main_option(
+-            Self::OPT_VERSION.0,
+-            glib::Char::try_from(Self::OPT_VERSION.1).unwrap(),
+-            glib::OptionFlags::IN_MAIN,
+-            glib::OptionArg::None,
+-            "Print the version information",
+-            None,
+-        );
          app.add_main_option(
-@@ -33,14 +63,6 @@ impl CmdLineOpts {
+             Self::OPT_START.0,
+             glib::Char::try_from(Self::OPT_START.1).unwrap(),
+@@ -46,14 +63,6 @@ impl CmdLineOpts {
              "Start the XR Service right away",
              None,
          );
@@ -311,7 +339,7 @@ index 48458e0..4b224c6 100644
          app.add_main_option(
              Self::OPT_PROFILE.0,
              glib::Char::try_from(Self::OPT_PROFILE.1).unwrap(),
-@@ -57,14 +79,6 @@ impl CmdLineOpts {
+@@ -70,22 +79,10 @@ impl CmdLineOpts {
              "Skip dependency checks when building profiles",
              None,
          );
@@ -326,9 +354,19 @@ index 48458e0..4b224c6 100644
      }
  
      /// returns an exit code if the application should quit immediately
-@@ -100,14 +114,12 @@ impl CmdLineOpts {
+     pub fn handle_non_activating_opts(&self) -> Option<i32> {
+-        if self.version {
+-            println!("{APP_NAME} {VERSION}");
+-            return Some(0);
+-        }
+         if self.list_profiles {
+             println!("Available profiles\nUUID: \"name\"");
+             let profiles = Config::get_config().profiles();
+@@ -116,16 +113,13 @@ impl CmdLineOpts {
+     pub fn from_cmdline(cmdline: &ApplicationCommandLine) -> Self {
          let opts = cmdline.options_dict();
          Self {
+-            version: opts.contains(Self::OPT_VERSION.0),
              start: opts.contains(Self::OPT_START.0),
 -            list_profiles: opts.contains(Self::OPT_LIST_PROFILES.0),
 +            list_profiles: false,
@@ -343,3 +381,6 @@ index 48458e0..4b224c6 100644
          }
      }
  }
+-- 
+2.53.0
+

@@ -30,32 +30,18 @@
   wrapGAppsHook4,
   zlib,
 }:
-
 stdenv.mkDerivation (finalAttrs: {
   pname = "envision-unwrapped";
-  version = "2.0.1";
+  version = "3.2.0";
 
   src = fetchFromGitLab {
     owner = "gabmus";
     repo = "envision";
-    rev = finalAttrs.version;
-    hash = "sha256-J1zctfFOyu+uLpctTiAe5OWBM7nXanzQocTGs1ToUMA=";
+    tag = finalAttrs.version;
+    hash = "sha256-H6E62C0jZCrSw13zitu1BGY0xTg9cveL8z5tb2jbBNY=";
   };
-
-  patches = [
-    ./support-headless-cli.patch
-  ];
 
   strictDeps = true;
-
-  cargoDeps = rustPlatform.fetchCargoVendor {
-    inherit (finalAttrs) pname version;
-    # TODO: Use srcOnly instead
-    src = applyPatches {
-      inherit (finalAttrs) src patches;
-    };
-    hash = "sha256-O3+urY2FlnHfxoJLn4iehnVWf1Y0uATEteyQVnZLxTQ=";
-  };
 
   nativeBuildInputs = [
     appstream-glib
@@ -65,10 +51,24 @@ stdenv.mkDerivation (finalAttrs: {
     meson
     ninja
     pkg-config
-    rustPlatform.cargoSetupHook
-    rustc
     wrapGAppsHook4
+
+    rustc
+    rustPlatform.cargoSetupHook
   ];
+
+  patches = [
+    ./support-headless-cli.patch
+  ];
+
+  cargoDeps = rustPlatform.fetchCargoVendor {
+    inherit (finalAttrs) pname version src patches;
+    # TODO: Use srcOnly instead
+    # src = applyPatches {
+    #   inherit (finalAttrs) src patches;
+    # };
+    hash = "sha256-7AihhNG+M5jJ7ZijtYCiHu2Qbs3NuDo9dbLtv9lMhMU=";
+  };
 
   buildInputs = [
     cairo
@@ -96,13 +96,12 @@ stdenv.mkDerivation (finalAttrs: {
 
   postInstall = ''
     wrapProgram $out/bin/envision \
-      --prefix PATH : "${lib.makeBinPath [ gdb ]}"
+      --prefix PATH : "${lib.makeBinPath [gdb]}"
   '';
 
-  passthru.updateScript = nix-update-script { };
+  passthru.updateScript = nix-update-script {};
 
   meta = {
-    broken = true;
     description = "UI for building, configuring and running Monado, the open source OpenXR runtime";
     homepage = "https://gitlab.com/gabmus/envision";
     license = lib.licenses.agpl3Only;
